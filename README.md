@@ -12,7 +12,7 @@ managed by Doctrine ORM.
 
 # Example
 
-    # sqlacrossover 'mysql+pymysql:///sourcedatabase?charset=utf8' postgresql:///targetdatabase
+    sqlacrossover 'mysql+pymysql:///sourcedatabase?charset=utf8' postgresql:///targetdatabase
 
 # TODO
 
