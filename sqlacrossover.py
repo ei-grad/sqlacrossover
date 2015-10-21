@@ -4,7 +4,6 @@ import argparse
 import logging
 
 import sqlalchemy as sa
-from sqlalchemy.engine import reflection
 
 
 logger = logging.getLogger(__name__)
@@ -16,11 +15,9 @@ class Connection():
         self.conn = self.engine.connect()
         self.meta = sa.MetaData()
         self.meta.reflect(self.engine)
-        self.insp = reflection.Inspector.from_engine(self.engine)
 
-        # get ordered table names list
-        tables_with_fks = self.insp.get_sorted_table_and_fkc_names()
-        self.tables = [table for table, fks in tables_with_fks if table]
+        tables = sa.schema.sort_tables(self.meta.tables.values())
+        self.tables = [i.name for i in tables]
 
 
 class Crossover():
