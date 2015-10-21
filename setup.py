@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='sqlacrossover',
-    version='0.2',
+    version='0.2.1',
     url='https://github.com/ei-grad/sqlacrossover',
     author='Andrew Grigorev',
     author_email='andrew@ei-grad.ru',
