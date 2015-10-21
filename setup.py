@@ -10,7 +10,7 @@ setup(
     license="Apache License 2.0",
     py_modules=['sqlacrossover'],
     install_requires=[
-        'sqlalchemy',
+        'sqlalchemy>=1.0',
     ],
     extras_require={
         'PostgreSQL': ['psycopg2'],
