@@ -30,11 +30,16 @@ class Crossover():
         # TODO: implement insert_data_copy
         self.insert_data = self.insert_data_simple
 
+    def copy_data_in_transaction(self):
+        with self.target.conn.begin():
+            self.copy_data()
+
     def copy_data(self):
         if set(self.source.tables) != set(self.target.tables):
             logger.warning("Source and target database table lists are not identical!")
         for table in self.source.tables:
-            self.copy_table(table)
+            if table in self.target.tables:
+                self.copy_table(table)
 
     def copy_table(self, table):
         offset = 0
@@ -57,10 +62,18 @@ def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('source', help='Source database SQLAlchemy URL')
     parser.add_argument('target', help='Target database SQLAlchemy URL')
-    parser.add_argument('--bulk', metavar="N", default=10000, help='Iterate by N rows')
+    parser.add_argument('--bulk', metavar="N", default=10000,
+                        help='Iterate by N rows')
+    parser.add_argument('--no-transaction', dest='use_transaction',
+                        action='store_false',
+                        help="Don't wrap inserts in a single transaction")
     args = parser.parse_args()
     crossover = Crossover(args.source, args.target, bulk=args.bulk)
-    crossover.copy_data()
+
+    if args.use_transaction:
+        crossover.copy_data_in_transaction()
+    else:
+        crossover.copy_data()
 
 
 if __name__ == '__main__':
