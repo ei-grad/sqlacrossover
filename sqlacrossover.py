@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 
 import sqlalchemy as sa
 from sqlalchemy.engine import reflection
+
+
+logger = logging.getLogger(__name__)
 
 
 class Connection():
@@ -13,7 +17,10 @@ class Connection():
         self.meta = sa.MetaData()
         self.meta.reflect(self.engine)
         self.insp = reflection.Inspector.from_engine(self.engine)
-        self.tables = self.insp.get_sorted_table_and_fkc_names()
+
+        # get ordered table names list
+        tables_with_fks = self.insp.get_sorted_table_and_fkc_names()
+        self.tables = [table for table, fks in tables_with_fks if table]
 
 
 class Crossover():
@@ -27,12 +34,12 @@ class Crossover():
         self.insert_data = self.insert_data_simple
 
     def copy_data(self):
-        assert self.source.tables[-1][0] is None
-        for table, fks in self.source.tables[:-1]:
+        if set(self.source.tables) != set(self.target.tables):
+            logger.warning("Source and target database table lists are not identical!")
+        for table in self.source.tables:
             self.copy_table(table)
 
     def copy_table(self, table):
-
         offset = 0
         source_table = self.target.meta.tables[table]
         while True:
@@ -49,6 +56,7 @@ class Crossover():
 
 
 def main():
+    logging.basicConfig(format="[%(levelname)s] %(message)s")
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('source', help='Source database SQLAlchemy URL')
     parser.add_argument('target', help='Target database SQLAlchemy URL')
