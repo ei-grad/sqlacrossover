@@ -1,10 +1,14 @@
 # sqlacrossover
-SQLAlchemy-based cross-database migration tool
 
-It is already better than py-mysql2pgsql, since it process tables in the right
-order. But its only feature for now is to copy data, since I only needed it to
-migrate data from MySQL to PostgreSQL database with identical schema, which is
-managed by Doctrine ORM.
+Cross-database migration tool based on SQLAlchemy
+
+Features:
+
+* Copy data and schema between SQLAlchemy-supported databases
+* Table ordering - taking the foreign keys dependencies in consideration
+* Data processing in batches
+* Wrap the process in transaction to get consistent results
+* Dump schema and data to SQL file
 
 ## Installation
 
@@ -20,8 +24,7 @@ managed by Doctrine ORM.
 
 ### Implement options:
 
-* --create-tables
-* --copy-data
+* --no-data
 * --tables
 * --exclude-tables
 * --truncate-non-empty
