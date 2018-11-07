@@ -40,8 +40,8 @@ TODO
 
 * Implement efficient driver-depenedent insert methods
 
-  * PostgreSQL copy
-  * ... what else?..
+  * PostgreSQL ``COPY FROM`` / ``COPY TO``
+  * MySQL ``LOAD DATA LOCAL INFILE``
 
 * Write tests, configure travis.ci
 
