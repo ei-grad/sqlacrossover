@@ -24,6 +24,9 @@ class GenericDatabase():
     def __iter__(self):
         return iter(sa.schema.sort_tables(self.meta.tables.values()))
 
+    def begin(self):
+        return self.conn.begin()
+
 
 class GenericSource(GenericDatabase):
     def select(self, table, offset, batch_size):
@@ -54,11 +57,23 @@ class GenericTarget(GenericDatabase):
         return len(data)
 
 
+class DumbContext():
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
+
+
 class FileTarget():
 
     def __init__(self, fileobj, dialect):
         self.fileobj = fileobj
         self.dialect = dialect
+
+    def begin(self):
+        return DumbContext()
 
     def create_all(self, metadata):
         for table in sa.schema.sort_tables(metadata.tables.values()):
@@ -96,8 +111,8 @@ class Crossover():
         self.batch_size = batch_size
 
     def run_in_transaction(self):
-        with self.source.conn.begin():
-            with self.target.conn.begin():
+        with self.source.begin():
+            with self.target.begin():
                 self.run()
 
     def run(self):
