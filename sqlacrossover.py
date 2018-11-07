@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+'''
+Cross-database migration tool based on SQLAlchemy
+'''
+
 import argparse
 import logging
 import sys
@@ -115,9 +119,11 @@ class Crossover():
 
 def main():
     logging.basicConfig(format="[%(levelname)s] %(message)s")
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source', help='Source database SQLAlchemy URL')
-    parser.add_argument('target', help='Target database SQLAlchemy URL')
+    parser.add_argument('target',
+                        help='Target database SQLAlchemy URL or '
+                             'file://path or -')
     parser.add_argument('--create-all', action='store_true',
                         help='Create tables in target database')
     parser.add_argument('--batch-size', metavar="N", default=10000,
