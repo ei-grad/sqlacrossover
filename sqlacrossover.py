@@ -33,6 +33,9 @@ class GenericSource(GenericDatabase):
 
 class GenericTarget(GenericDatabase):
 
+    def create_all(self, metadata):
+        metadata.create_all(self.engine)
+
     def could_adopt(self, target_table_name, source_table):
         # XXX: implement a generic table structure equality checking
         # raise NotImplementedError()
@@ -106,6 +109,7 @@ def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('source', help='Source database SQLAlchemy URL')
     parser.add_argument('target', help='Target database SQLAlchemy URL')
+    parser.add_argument('--create-all', action='store_true', help='Create tables in target database')
     parser.add_argument('--batch-size', metavar="N", default=10000,
                         help='Iterate by N rows')
     parser.add_argument('--no-transaction', dest='use_transaction',
@@ -123,6 +127,23 @@ def main():
     # TODO: implement PostgreSQLTarget
     else:
         target = GenericTarget(args.target)
+
+    if args.create_all:
+        if not hasattr(target, 'create_all'):
+            sys.stderr.write("%s: create_all is not implemented" % type(target))
+            return 1
+        if not hasattr(source, 'meta'):
+            sys.stderr.write("%s: no metadata available for create_all" % type(source))
+            return 1
+        for table in source.meta.tables.values():
+            for c in table.columns:
+                if c.autoincrement:
+                    # remove postgresql's `nextval(...)` server defaults which duplicates
+                    # the reflected autoincrement value, and is not supported in other
+                    # dialects
+                    c.server_default = None
+        target.create_all(source.meta)
+
     crossover = Crossover(source, target, batch_size=args.batch_size)
 
     if args.use_transaction:
@@ -133,6 +154,8 @@ def main():
     if fileobj is not None:
         fileobj.close()
 
+    return 0
+
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
