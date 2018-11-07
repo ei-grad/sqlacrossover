@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import sys
 
 import sqlalchemy as sa
 
@@ -9,52 +10,95 @@ import sqlalchemy as sa
 logger = logging.getLogger(__name__)
 
 
-class Connection():
+class GenericDatabase():
     def __init__(self, url):
         self.engine = sa.create_engine(url)
         self.conn = self.engine.connect()
         self.meta = sa.MetaData()
         self.meta.reflect(self.engine)
 
-        tables = sa.schema.sort_tables(self.meta.tables.values())
-        self.tables = [i.name for i in tables]
+    def __iter__(self):
+        return iter(sa.schema.sort_tables(self.meta.tables.values()))
+
+
+class GenericSource(GenericDatabase):
+    def select(self, table, offset, batch_size):
+        return self.conn.execute(
+            sa.select([table])
+            .order_by(*table.primary_key.columns)
+            .offset(offset)
+            .limit(batch_size)
+        )
+
+
+class GenericTarget(GenericDatabase):
+
+    def could_adopt(self, target_table_name, source_table):
+        # XXX: implement a generic table structure equality checking
+        # raise NotImplementedError()
+        return True
+
+    def insert(self, target_table_name, source_table, data):
+        # XXX: replace table name by target_table_name
+        # XXX: source_table is used to keep the columns order
+        data = list(map(dict, data))
+        if len(data) > 0:
+            return self.conn.execute(source_table.insert(), data).rowcount
+        return len(data)
+
+
+class FileTarget():
+    def __init__(self, fileobj, dialect):
+        self.fileobj = fileobj
+        self.dialect = dialect
+
+    def could_adopt(self, target_table_name, source_table):
+        return True
+
+    def insert(self, target_table_name, source_table, data):
+        count = 0
+        for row in data:
+            count += 1
+            row = {k: v for k, v in zip(row.keys(), row) if v is not None}
+            stmt = source_table.insert().values(row)
+            stmt = stmt.compile(
+                dialect=self.dialect,
+                compile_kwargs={"literal_binds": True}
+            )
+            self.fileobj.write('%s;\n' % (stmt,))
+        return count
+
+    def close(self):
+        self.file.close()
 
 
 class Crossover():
 
-    def __init__(self, source, target, bulk):
-        self.source = Connection(source)
-        self.target = Connection(target)
-        self.bulk = bulk
+    def __init__(self, source, target, batch_size):
+        self.source = source
+        self.target = target
+        self.batch_size = batch_size
 
-        # TODO: implement insert_data_copy
-        self.insert_data = self.insert_data_simple
+    def run_in_transaction(self):
+        with self.source.conn.begin():
+            with self.target.conn.begin():
+                self.run()
 
-    def copy_data_in_transaction(self):
-        with self.target.conn.begin():
-            self.copy_data()
-
-    def copy_data(self):
-        if set(self.source.tables) != set(self.target.tables):
-            logger.warning("Source and target database table lists are not identical!")
-        for table in self.source.tables:
-            if table in self.target.tables:
+    def run(self):
+        for table in self.source:
+            if self.target.could_adopt(table.name, table):
                 self.copy_table(table)
+            else:
+                logger.error("Skipping table %s", table.name)
 
     def copy_table(self, table):
         offset = 0
-        source_table = self.target.meta.tables[table]
         while True:
-            data = list(self.source.conn.execute(
-                sa.select([source_table]).offset(offset).limit(self.bulk)
-            ))
-            if not data:
+            data = self.source.select(table, offset, self.batch_size)
+            rows_count = self.target.insert(table.name, table, data)
+            if rows_count == 0:
                 break
-            self.insert_data(table, data)
-            offset += self.bulk
-
-    def insert_data_simple(self, table, data):
-        self.target.conn.execute(self.target.meta.tables[table].insert(), data)
+            offset += rows_count
 
 
 def main():
@@ -62,18 +106,32 @@ def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('source', help='Source database SQLAlchemy URL')
     parser.add_argument('target', help='Target database SQLAlchemy URL')
-    parser.add_argument('--bulk', metavar="N", default=10000,
+    parser.add_argument('--batch-size', metavar="N", default=10000,
                         help='Iterate by N rows')
     parser.add_argument('--no-transaction', dest='use_transaction',
                         action='store_false',
                         help="Don't wrap inserts in a single transaction")
     args = parser.parse_args()
-    crossover = Crossover(args.source, args.target, bulk=args.bulk)
+
+    source = GenericSource(args.source)
+    fileobj = None
+    if args.target.startswith('file://'):
+        fileobj = open(args.target[7:], 'w')
+        target = FileTarget(fileobj, dialect=source.engine.dialect)
+    elif args.target == '-':
+        target = FileTarget(sys.stdout, dialect=source.engine.dialect)
+    # TODO: implement PostgreSQLTarget
+    else:
+        target = GenericTarget(args.target)
+    crossover = Crossover(source, target, batch_size=args.batch_size)
 
     if args.use_transaction:
-        crossover.copy_data_in_transaction()
+        crossover.run_in_transaction()
     else:
-        crossover.copy_data()
+        crossover.run()
+
+    if fileobj is not None:
+        fileobj.close()
 
 
 if __name__ == '__main__':
