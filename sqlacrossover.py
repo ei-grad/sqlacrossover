@@ -58,8 +58,10 @@ class FileTarget():
 
     def create_all(self, metadata):
         for table in sa.schema.sort_tables(metadata.tables.values()):
+            ddl = sa.schema.CreateTable(table)
+            ddl = self.dialect.ddl_compiler(self.dialect, ddl)
             self.fileobj.write('%s;\n\n' % (
-                self.dialect.ddl_compiler(self.dialect, sa.schema.CreateTable(table)).string.strip(),
+                ddl.string.strip(),
             ))
 
     def could_adopt(self, target_table_name, source_table):
@@ -116,7 +118,8 @@ def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('source', help='Source database SQLAlchemy URL')
     parser.add_argument('target', help='Target database SQLAlchemy URL')
-    parser.add_argument('--create-all', action='store_true', help='Create tables in target database')
+    parser.add_argument('--create-all', action='store_true',
+                        help='Create tables in target database')
     parser.add_argument('--batch-size', metavar="N", default=10000,
                         help='Iterate by N rows')
     parser.add_argument('--no-transaction', dest='use_transaction',
@@ -137,17 +140,19 @@ def main():
 
     if args.create_all:
         if not hasattr(target, 'create_all'):
-            sys.stderr.write("%s: create_all is not implemented" % type(target))
+            sys.stderr.write("%s: create_all is not implemented" %
+                             type(target))
             return 1
         if not hasattr(source, 'meta'):
-            sys.stderr.write("%s: no metadata available for create_all" % type(source))
+            sys.stderr.write("%s: no metadata available for create_all" %
+                             type(source))
             return 1
         for table in source.meta.tables.values():
             for c in table.columns:
                 if c.autoincrement:
-                    # remove postgresql's `nextval(...)` server defaults which duplicates
-                    # the reflected autoincrement value, and is not supported in other
-                    # dialects
+                    # remove postgresql's `nextval(...)` server defaults which
+                    # duplicates the reflected autoincrement value, and is not
+                    # supported in other dialects
                     c.server_default = None
         target.create_all(source.meta)
 
