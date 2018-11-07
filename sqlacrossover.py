@@ -49,11 +49,10 @@ class GenericTarget(GenericDatabase):
         return True
 
     def insert(self, target_table_name, source_table, data):
-        # XXX: replace table name by target_table_name
-        # XXX: source_table is used to keep the columns order
         data = list(map(dict, data))
         if len(data) > 0:
-            return self.conn.execute(source_table.insert(), data).rowcount
+            stmt = self.meta.tables[target_table_name].insert()
+            return self.conn.execute(stmt, data).rowcount
         return len(data)
 
 
