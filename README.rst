@@ -1,4 +1,5 @@
-# sqlacrossover
+sqlacrossover
+=============
 
 Cross-database migration tool based on SQLAlchemy
 
@@ -10,34 +11,42 @@ Features:
 * Wrap the process in transaction to get consistent results
 * Dump schema and data to SQL file
 
-## Installation
+Installation
+------------
+
+.. code-block:: bash
 
     pip install sqlacrossover[MySQL,PostgreSQL]
 
-## Example
+Example
+-------
+
+.. code-block:: bash
 
     sqlacrossover 'mysql+pymysql:///sourcedatabase?charset=utf8' postgresql:///targetdatabase
 
-## TODO
+TODO
+----
 
-### Write documentation
+* Write documentation
 
-### Implement options:
+* Implement options:
 
-* --no-data
-* --tables
-* --exclude-tables
-* --truncate-non-empty
-* --skip-non-empty
+  * ``--no-data``
+  * ``--tables``
+  * ``--exclude-tables``
+  * ``--truncate-non-empty``
+  * ``--skip-non-empty``
 
-### Implement efficient driver-depenedent insert methods
+* Implement efficient driver-depenedent insert methods
 
-* PostgreSQL copy
-* ... what else?..
+  * PostgreSQL copy
+  * ... what else?..
 
-### Write tests, configure travis.ci
+* Write tests, configure travis.ci
 
-## Contibuting
+Contibuting
+-----------
 
 Pull requests implementing new features, adding tests, docs and fixing bugs are welcome.
 
