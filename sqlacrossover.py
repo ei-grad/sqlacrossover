@@ -51,9 +51,16 @@ class GenericTarget(GenericDatabase):
 
 
 class FileTarget():
+
     def __init__(self, fileobj, dialect):
         self.fileobj = fileobj
         self.dialect = dialect
+
+    def create_all(self, metadata):
+        for table in sa.schema.sort_tables(metadata.tables.values()):
+            self.fileobj.write('%s;\n\n' % (
+                self.dialect.ddl_compiler(self.dialect, sa.schema.CreateTable(table)).string.strip(),
+            ))
 
     def could_adopt(self, target_table_name, source_table):
         return True
