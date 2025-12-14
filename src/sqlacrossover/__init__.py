@@ -15,8 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 class GenericDatabase():
-    def __init__(self, url):
-        self.engine = sa.create_engine(url)
+    def __init__(self, url_or_engine):
+        # Accept either a URL string or an Engine object
+        if isinstance(url_or_engine, str):
+            self.engine = sa.create_engine(url_or_engine)
+            self._owns_engine = True
+        else:
+            # Assume it's an Engine or has a .url attribute
+            self.engine = url_or_engine
+            self._owns_engine = False
         self.conn = self.engine.connect()
         self.meta = sa.MetaData()
         self.meta.reflect(self.engine)
@@ -27,11 +34,36 @@ class GenericDatabase():
     def begin(self):
         return self.conn.begin()
 
+    def close(self):
+        """Close connection and dispose of engine if we own it"""
+        if self.conn is not None:
+            self.conn.close()
+            self.conn = None
+        if self._owns_engine and self.engine is not None:
+            self.engine.dispose()
+            self.engine = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if self.conn is not None and not self.conn.closed:
+                if exc_type is None:
+                    if self.conn.in_transaction():
+                        self.conn.commit()
+                else:
+                    if self.conn.in_transaction():
+                        self.conn.rollback()
+        finally:
+            self.close()
+        return False
+
 
 class GenericSource(GenericDatabase):
     def select(self, table, offset, batch_size):
         return self.conn.execute(
-            sa.select([table])
+            sa.select(table)
             .order_by(*table.primary_key.columns)
             .offset(offset)
             .limit(batch_size)
@@ -41,7 +73,17 @@ class GenericSource(GenericDatabase):
 class GenericTarget(GenericDatabase):
 
     def create_all(self, metadata):
+        # Remove dialect-specific server defaults (like PostgreSQL's nextval)
+        # which are incompatible across databases
+        for table in metadata.tables.values():
+            for c in table.columns:
+                if c.autoincrement:
+                    c.server_default = None
+        
         metadata.create_all(self.engine)
+        # Update self.meta to reflect the newly created tables
+        self.meta = sa.MetaData()
+        self.meta.reflect(self.engine)
 
     def could_adopt(self, target_table_name, source_table):
         # XXX: implement a generic table structure equality checking
@@ -49,7 +91,7 @@ class GenericTarget(GenericDatabase):
         return True
 
     def insert(self, target_table_name, source_table, data):
-        data = list(map(dict, data))
+        data = [dict(row._mapping) for row in data]
         if len(data) > 0:
             stmt = self.meta.tables[target_table_name].insert()
             return self.conn.execute(stmt, data).rowcount
@@ -77,9 +119,9 @@ class FileTarget():
     def create_all(self, metadata):
         for table in sa.schema.sort_tables(metadata.tables.values()):
             ddl = sa.schema.CreateTable(table)
-            ddl = self.dialect.ddl_compiler(self.dialect, ddl)
+            compiled = ddl.compile(dialect=self.dialect)
             self.fileobj.write('%s;\n\n' % (
-                ddl.string.strip(),
+                str(compiled).strip(),
             ))
 
     def could_adopt(self, target_table_name, source_table):
@@ -89,7 +131,8 @@ class FileTarget():
         count = 0
         for row in data:
             count += 1
-            row = {k: v for k, v in zip(row.keys(), row) if v is not None}
+            mapping = getattr(row, "_mapping", row)
+            row = {k: v for k, v in dict(mapping).items() if v is not None}
             stmt = source_table.insert().values(row)
             stmt = stmt.compile(
                 dialect=self.dialect,
@@ -99,7 +142,7 @@ class FileTarget():
         return count
 
     def close(self):
-        self.file.close()
+        self.fileobj.close()
 
 
 class Crossover():

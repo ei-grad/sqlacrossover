@@ -1,0 +1,1 @@
+"""Basic configuration for pytest"""

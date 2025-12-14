@@ -55,3 +55,18 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# uv
+.uv/
+uv.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

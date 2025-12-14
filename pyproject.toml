@@ -1,0 +1,66 @@
+[project]
+name = "sqlacrossover"
+version = "0.1.0"
+description = "SQLAlchemy-based cross-database migration tool"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Andrew Grigorev", email = "andrew@ei-grad.ru"}
+]
+keywords = ["sqlalchemy", "database migration", "data migration"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Topic :: Database",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "sqlalchemy>=1.4",
+]
+
+[project.optional-dependencies]
+postgresql = ["psycopg2-binary"]
+mysql = ["pymysql", "cryptography"]
+mariadb = ["pymysql", "cryptography"]
+mssql = ["pymssql"]
+oracle = ["cx-oracle>=8.0"]
+all = ["psycopg2-binary", "pymysql", "cryptography", "pymssql", "cx-oracle>=8.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "psycopg2-binary",
+    "pymysql",
+    "cryptography",
+    "ruff>=0.14.9",
+    "ipython>=8.37.0",
+]
+
+[project.urls]
+Homepage = "https://pypi.org/project/sqlacrossover/"
+Documentation = "https://github.com/ei-grad/sqlacrossover"
+"Bug Tracker" = "https://github.com/ei-grad/sqlacrossover/issues"
+"Source Code" = "https://github.com/ei-grad/sqlacrossover"
+
+[project.scripts]
+sqlacrossover = "sqlacrossover:main"
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=sqlacrossover --cov-report=term-missing"
